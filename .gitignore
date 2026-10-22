@@ -1,0 +1,9 @@
+# build artifacts (outside firmware/)
+/build/
+/out/
+*.elf
+*.map
+
+# local environments
+.venv/
+__pycache__/

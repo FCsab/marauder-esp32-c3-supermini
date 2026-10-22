@@ -1,0 +1,59 @@
+diff --git a/esp32_marauder/AXP192.cpp b/esp32_marauder/AXP192.cpp
+index bae47f0..4b28d18 100644
+--- a/esp32_marauder/AXP192.cpp
++++ b/esp32_marauder/AXP192.cpp
+@@ -1,5 +1,10 @@
++#include "configs.h"
+ #include "AXP192.h"
+ 
++// Only the M5Stick/Core2 targets carry this PMIC. Guarding the whole
++// translation unit keeps targets without Wire1 (e.g. ESP32-C3) compiling.
++#ifdef HAS_AXP192
++
+ #ifdef MARAUDER_M5STACK_CORE2_AWS
+   #define AXP192_WIRE Wire
+ #else
+@@ -446,3 +451,5 @@ void AXP192::SetPeripherialsPower(uint8_t state) {
+     // uint8_t data;
+     // Set EXTEN to enable 5v boost
+ }
++
++#endif // HAS_AXP192
+diff --git a/esp32_marauder/configs.h b/esp32_marauder/configs.h
+index c05aa97..5be8a5f 100644
+--- a/esp32_marauder/configs.h
++++ b/esp32_marauder/configs.h
+@@ -145,6 +145,8 @@
+     #define HARDWARE_NAME "M5 Nano C6"
+   #elif defined(MARAUDER_POOM)
+     #define HARDWARE_NAME "POOM"
++  #elif defined(MARAUDER_C3_SUPERMINI)
++    #define HARDWARE_NAME "ESP32-C3 SuperMini"
+   #else
+     #define HARDWARE_NAME "ESP32"
+   #endif
+@@ -722,6 +724,15 @@
+     #define HAS_DIRECT_UPLOAD
+   #endif
+ 
++  // Bare ESP32-C3 SuperMini: 4MB flash, no PSRAM, no display, no SD, no
++  // buttons. Native USB-Serial/JTAG only; onboard WS2812 sits on GPIO8.
++  #ifdef MARAUDER_C3_SUPERMINI
++    #define HAS_BT
++    #define HAS_NEOPIXEL_LED
++    #define HAS_NIMBLE_2
++    #define HAS_IDF_3
++  #endif
++
+   #if defined(MARAUDER_M5_NANO_C6)
+     //#define FLIPPER_ZERO_HAT
+     //#define HAS_MINI_KB
+@@ -3051,6 +3062,8 @@
+       #define PIN 21
+     #elif defined(MARAUDER_M5_NANO_C6)
+       #define PIN 20
++    #elif defined(MARAUDER_C3_SUPERMINI)
++      #define PIN 8
+     #else
+       #define PIN 25
+     #endif
