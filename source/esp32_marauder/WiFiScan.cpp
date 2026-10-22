@@ -6065,7 +6065,10 @@ void WiFiScan::executeBLESpam(EBLEPayloadType type) {
              (type == FlipperZero)) {
       this->setBaseMacAddress(macAddr);
 
-      NimBLEDevice::init("");
+      if (!NimBLEDevice::init("")) {
+        Serial.printf("[BLE] init failed (free heap %u)\n", (unsigned)ESP.getFreeHeap());
+        return;
+      }
 
       #ifdef HAS_NIMBLE_2
         // Rotate the advertising address per burst. esp_base_mac_addr_set()
@@ -6096,7 +6099,24 @@ void WiFiScan::executeBLESpam(EBLEPayloadType type) {
         pAdvertising->setMaxInterval(ADV_ITVL);
       #endif
 
-      pAdvertising->start();
+      if (!pAdvertising->start()) {
+        Serial.printf("[BLE] advertising failed to start (free heap %u)\n",
+                      (unsigned)ESP.getFreeHeap());
+      }
+      #ifndef HAS_SCREEN
+        else {
+          // Headless boards have no way to show that the attack is running,
+          // so report progress on the serial CLI every few seconds.
+          static uint32_t spam_bursts = 0;
+          static uint32_t spam_report = 0;
+          spam_bursts++;
+          if (now_time - spam_report >= 5000) {
+            spam_report = now_time;
+            Serial.printf("[BLE] spam active: %u bursts, free heap %u\n",
+                          (unsigned)spam_bursts, (unsigned)ESP.getFreeHeap());
+          }
+        }
+      #endif
       delay(ADV_WINDOW_MS);
       pAdvertising->stop();
 

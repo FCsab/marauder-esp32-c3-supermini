@@ -173,10 +173,32 @@ FF 06 00        manufacturer specific data, vendor Microsoft (0x0006)
 ```
 
 Measured on air from a second host (`bleak` scanner, company ID `0x0006`):
-~4 advertisements per second per burst and a different BLE address for each burst.
+every burst advertises at a 20 ms interval from a fresh static-random address.
+The same result holds when the attack is started after `scanall` or after `sniffbt`.
+
+While the attack runs, the headless CLI prints a heartbeat every five seconds:
+
+```text
+[BLE] spam active: 23 bursts, free heap 133232
+```
+
+If you instead see `[BLE] advertising failed to start`, the BLE controller ran out
+of resources; reboot the board before starting the attack.
 
 `blespam -t all` cycles all six payload types. Because every type now holds the air
 for 150 ms plus a NimBLE init/deinit cycle, a full round takes roughly 1.5–2 s.
+
+#### If Windows still shows nothing
+
+- Enable **Settings → Bluetooth & other devices → Show notifications to connect
+  using Swift Pair**. If that option is not listed, the Bluetooth radio does not
+  support the hardware offload Windows uses for this feature, and no advertisement
+  will produce a toast.
+- Confirm the beacon is on air: scan with nRF Connect on a phone and look for a
+  device whose manufacturer data starts with `06 00 03 00 80` (company `0x0006`).
+- Keep the board within a couple of metres; the notification is gated on RSSI.
+- Windows shows one toast per Bluetooth address. This build rotates the address
+  every burst, which is what produces repeated notifications.
 
 ---
 
@@ -219,8 +241,8 @@ on this target.
 
 Resource usage of the shipped build:
 
-- Application: 1,566,862 bytes — 79% of the 1,966,080-byte `min_spiffs` app partition.
-- Static RAM: 58,976 bytes (17%) — roughly 268 KB left for the heap.
+- Application: 1,567,158 bytes — 79% of the 1,966,080-byte `min_spiffs` app partition.
+- Static RAM: 58,984 bytes (18%) — roughly 268 KB left for the heap.
 
 ---
 

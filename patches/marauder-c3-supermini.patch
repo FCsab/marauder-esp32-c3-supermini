@@ -20,7 +20,7 @@ index bae47f0..4b28d18 100644
 +
 +#endif // HAS_AXP192
 diff --git a/esp32_marauder/WiFiScan.cpp b/esp32_marauder/WiFiScan.cpp
-index 6e7e279..d14da91 100644
+index 6e7e279..7398d0a 100644
 --- a/esp32_marauder/WiFiScan.cpp
 +++ b/esp32_marauder/WiFiScan.cpp
 @@ -5943,6 +5943,12 @@ void WiFiScan::initializeFindMyScan() {
@@ -36,8 +36,15 @@ index 6e7e279..d14da91 100644
      uint32_t now_time = millis();
      uint8_t macAddr[6];
      generateRandomMac(macAddr);
-@@ -6062,6 +6068,16 @@ void WiFiScan::executeBLESpam(EBLEPayloadType type) {
-       NimBLEDevice::init("");
+@@ -6059,9 +6065,22 @@ void WiFiScan::executeBLESpam(EBLEPayloadType type) {
+              (type == FlipperZero)) {
+       this->setBaseMacAddress(macAddr);
+ 
+-      NimBLEDevice::init("");
++      if (!NimBLEDevice::init("")) {
++        Serial.printf("[BLE] init failed (free heap %u)\n", (unsigned)ESP.getFreeHeap());
++        return;
++      }
  
        #ifdef HAS_NIMBLE_2
 +        // Rotate the advertising address per burst. esp_base_mac_addr_set()
@@ -53,10 +60,12 @@ index 6e7e279..d14da91 100644
          if (!NimBLEDevice::setPower(20))
            Serial.println("Failed to set NimBLE output power");
        #endif
-@@ -6072,8 +6088,16 @@ void WiFiScan::executeBLESpam(EBLEPayloadType type) {
+@@ -6072,8 +6091,33 @@ void WiFiScan::executeBLESpam(EBLEPayloadType type) {
  
        NimBLEAdvertisementData advertisementData = this->GetUniversalAdvertisementData(type);
        pAdvertising->setAdvertisementData(advertisementData);
+-      pAdvertising->start();
+-      delay(10);
 +
 +      #ifdef HAS_NIMBLE_2
 +        // Fastest legal advertising interval: several events inside the
@@ -65,8 +74,24 @@ index 6e7e279..d14da91 100644
 +        pAdvertising->setMaxInterval(ADV_ITVL);
 +      #endif
 +
-       pAdvertising->start();
--      delay(10);
++      if (!pAdvertising->start()) {
++        Serial.printf("[BLE] advertising failed to start (free heap %u)\n",
++                      (unsigned)ESP.getFreeHeap());
++      }
++      #ifndef HAS_SCREEN
++        else {
++          // Headless boards have no way to show that the attack is running,
++          // so report progress on the serial CLI every few seconds.
++          static uint32_t spam_bursts = 0;
++          static uint32_t spam_report = 0;
++          spam_bursts++;
++          if (now_time - spam_report >= 5000) {
++            spam_report = now_time;
++            Serial.printf("[BLE] spam active: %u bursts, free heap %u\n",
++                          (unsigned)spam_bursts, (unsigned)ESP.getFreeHeap());
++          }
++        }
++      #endif
 +      delay(ADV_WINDOW_MS);
        pAdvertising->stop();
  
