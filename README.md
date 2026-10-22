@@ -108,19 +108,19 @@ git clone --depth 1 --branch 1.6 \
 `Adafruit_TCA8418` is not in the Arduino registry; it ships with upstream Marauder:
 
 ```bash
-cp -r "$HOME/esp32marauder/libraries/Adafruit_TCA8418" "$HOME/Arduino/libraries/"
+cp -r source/libraries/Adafruit_TCA8418 "$HOME/Arduino/libraries/"
 ```
 
-Prepare the source (pinned commit + patch) and build:
+Build it:
 
 ```bash
-./scripts/prepare-source.sh
 ./scripts/build-c3.sh /dev/ttyACM0
 ```
 
-`prepare-source.sh` clones upstream into `~/esp32marauder` (override with
-`MARAUDER_SRC`), checks out `be4f428`, resets the tree, and applies
-`patches/marauder-c3-supermini.patch`.
+The complete patched source tree is in `source/`, so no checkout or patch step is
+needed. `scripts/prepare-source.sh` is only for regenerating that tree from
+upstream: it clones `be4f428` into `~/esp32marauder` (override with `MARAUDER_SRC`),
+applies `patches/marauder-c3-supermini.patch`, and re-exports `source/`.
 
 ---
 
@@ -251,12 +251,23 @@ If a bad image leaves the board in a boot loop, this recovers it without any spe
 
 ## Repository layout
 
-- `patches/marauder-c3-supermini.patch` — source changes against upstream `be4f428`.
-- `scripts/prepare-source.sh` — clone upstream at the pinned commit and apply the patch.
-- `scripts/build-c3.sh` — compile and flash via arduino-cli.
+- `source/` — complete ESP32 Marauder source tree at upstream `be4f428` with the
+  C3 SuperMini patch applied (sketch, `libraries/`, display setup headers, tools,
+  unit tests, upstream README and LICENSE). This is the tree `build-c3.sh` compiles.
+- `patches/marauder-c3-supermini.patch` — the same changes as a diff against
+  upstream, for review or upstreaming.
+- `scripts/prepare-source.sh` — regenerate `source/` from upstream at the pinned
+  commit and re-apply the patch.
+- `scripts/build-c3.sh` — compile `source/` and flash via arduino-cli.
 - `scripts/flash-prebuilt.sh` — flash the merged image via esptool.
 - `scripts/monitor.sh` — open the serial CLI.
 - `firmware/` — prebuilt images and `SHA256SUMS`.
+
+Not vendored, to keep the repository small: upstream `pictures/`, `mechanical/`,
+`PCBs/`, `FlashFiles/`, `Release Bins/`, the C5 Python flasher bundles, and
+`esp32_marauder/PreviousVersions/` (106 MB of old binaries). All of them are
+available in the upstream repository. Arduino library dependencies are not
+vendored either; the build section above pins their versions.
 
 ---
 

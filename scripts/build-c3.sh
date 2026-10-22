@@ -15,14 +15,15 @@
 
 set -euo pipefail
 
-SRC="${MARAUDER_SRC:-$HOME/esp32marauder}"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+SRC="${MARAUDER_SRC:-$(cd "$HERE/../source" && pwd)}"
 OUT="${MARAUDER_OUT:-$HOME/esp32marauder-build}"
 PORT="${1:-/dev/ttyACM0}"
 FQBN="esp32:esp32:esp32c3:FlashSize=4M,PartitionScheme=min_spiffs,CDCOnBoot=cdc"
 
 if ! grep -q "MARAUDER_C3_SUPERMINI" "$SRC/esp32_marauder/configs.h"; then
   echo "error: C3 SuperMini profile not found in $SRC." >&2
-  echo "       Run scripts/prepare-source.sh first." >&2
+  echo "       Run scripts/prepare-source.sh to regenerate ./source." >&2
   exit 1
 fi
 
