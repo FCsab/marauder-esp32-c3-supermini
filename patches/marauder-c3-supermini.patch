@@ -19,6 +19,58 @@ index bae47f0..4b28d18 100644
  }
 +
 +#endif // HAS_AXP192
+diff --git a/esp32_marauder/WiFiScan.cpp b/esp32_marauder/WiFiScan.cpp
+index 6e7e279..d14da91 100644
+--- a/esp32_marauder/WiFiScan.cpp
++++ b/esp32_marauder/WiFiScan.cpp
+@@ -5943,6 +5943,12 @@ void WiFiScan::initializeFindMyScan() {
+ 
+ void WiFiScan::executeBLESpam(EBLEPayloadType type) {
+   #ifdef HAS_BT
++    // NimBLE defaults to a 30-60 ms advertising interval, so a burst has to
++    // stay on air long enough to emit several ADV events. The old 10 ms
++    // window usually sent nothing at all, which is why Swift Pair (and the
++    // other vendor payloads) appeared to do nothing.
++    const uint16_t ADV_ITVL = 0x20;  // 32 * 0.625 ms = 20 ms, BLE minimum
++    const uint32_t ADV_WINDOW_MS = 150;
+     uint32_t now_time = millis();
+     uint8_t macAddr[6];
+     generateRandomMac(macAddr);
+@@ -6062,6 +6068,16 @@ void WiFiScan::executeBLESpam(EBLEPayloadType type) {
+       NimBLEDevice::init("");
+ 
+       #ifdef HAS_NIMBLE_2
++        // Rotate the advertising address per burst. esp_base_mac_addr_set()
++        // is ignored once the radio has been initialised, so drive the
++        // address through NimBLE: top two bits set to 11 marks a static
++        // random address. Windows shows one Swift Pair toast per address.
++        uint8_t advAddr[6];
++        esp_fill_random(advAddr, 6);
++        advAddr[5] = (advAddr[5] & 0x3F) | 0xC0;
++        NimBLEDevice::setOwnAddr(advAddr);
++        NimBLEDevice::setOwnAddrType(BLE_OWN_ADDR_RANDOM);
++
+         if (!NimBLEDevice::setPower(20))
+           Serial.println("Failed to set NimBLE output power");
+       #endif
+@@ -6072,8 +6088,16 @@ void WiFiScan::executeBLESpam(EBLEPayloadType type) {
+ 
+       NimBLEAdvertisementData advertisementData = this->GetUniversalAdvertisementData(type);
+       pAdvertising->setAdvertisementData(advertisementData);
++
++      #ifdef HAS_NIMBLE_2
++        // Fastest legal advertising interval: several events inside the
++        // burst instead of the library's 30-60 ms default.
++        pAdvertising->setMinInterval(ADV_ITVL);
++        pAdvertising->setMaxInterval(ADV_ITVL);
++      #endif
++
+       pAdvertising->start();
+-      delay(10);
++      delay(ADV_WINDOW_MS);
+       pAdvertising->stop();
+ 
+       NimBLEDevice::deinit();
 diff --git a/esp32_marauder/configs.h b/esp32_marauder/configs.h
 index c05aa97..5be8a5f 100644
 --- a/esp32_marauder/configs.h

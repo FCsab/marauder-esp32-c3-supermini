@@ -20,6 +20,9 @@ Tested on real hardware. What was confirmed:
 - `settings` loads, creates, and persists its SPIFFS config on first boot.
 - `scanall` captured 21 APs plus station/AP pairs across channels 1, 6, 7, 11, 12.
 - `sniffbt -t ibeacon` initializes the NimBLE stack and starts sniffer mode.
+- `blespam -t windows` puts Swift Pair advertisements on air with the correct
+  Microsoft vendor payload and a fresh address per burst. Verified from a second
+  host (see BLE spam notes below).
 - Builds and links cleanly at 79% of the app partition.
 
 Not confirmed:
@@ -156,11 +159,30 @@ Example session:
 > reboot
 ```
 
+### BLE spam notes
+
+`blespam -t windows` sends the Microsoft Swift Pair payload from the Swift Pair
+specification:
+
+```
+FF 06 00        manufacturer specific data, vendor Microsoft (0x0006)
+03              Swift Pair beacon ID
+00              sub-scenario 0x00 = pairing over BLE only
+80              reserved RSSI byte
+<name>          optional display name, random per burst
+```
+
+Measured on air from a second host (`bleak` scanner, company ID `0x0006`):
+~4 advertisements per second per burst and a different BLE address for each burst.
+
+`blespam -t all` cycles all six payload types. Because every type now holds the air
+for 150 ms plus a NimBLE init/deinit cycle, a full round takes roughly 1.5–2 s.
+
 ---
 
 ## How the port works
 
-The patch is deliberately small — three edits across two files:
+The patch is deliberately small — four edits across three files:
 
 - `esp32_marauder/configs.h`
   - Adds the `MARAUDER_C3_SUPERMINI` hardware name.
@@ -171,6 +193,16 @@ The patch is deliberately small — three edits across two files:
   - Guards the whole translation unit with `#ifdef HAS_AXP192`. The file unconditionally
     used `Wire1`, which does not exist on the C3, so it failed to compile even though no
     C3 board has that PMIC.
+- `esp32_marauder/WiFiScan.cpp` — BLE spam fixes (Microsoft Swift Pair, Google,
+  Samsung, Flipper Zero):
+  - The advertising burst was 10 ms once per second while NimBLE's default interval is
+    30–60 ms, so most bursts emitted **zero** packets. It now uses the 20 ms minimum
+    interval and stays on air for 150 ms.
+  - Each burst advertises from a fresh static-random BLE address.
+    `esp_base_mac_addr_set()` is ignored once the radio has been initialised, so the
+    address is set through `NimBLEDevice::setOwnAddr()` plus
+    `setOwnAddrType(BLE_OWN_ADDR_RANDOM)`. Windows shows one Swift Pair toast per
+    address, so rotation is what makes repeated popups possible.
 
 Build configuration:
 
@@ -187,7 +219,7 @@ on this target.
 
 Resource usage of the shipped build:
 
-- Application: 1,566,680 bytes — 79% of the 1,966,080-byte `min_spiffs` app partition.
+- Application: 1,566,862 bytes — 79% of the 1,966,080-byte `min_spiffs` app partition.
 - Static RAM: 58,976 bytes (17%) — roughly 268 KB left for the heap.
 
 ---
